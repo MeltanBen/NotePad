@@ -38,6 +38,7 @@ import android.view.ContextMenu.ContextMenuInfo;
 import android.widget.AdapterView;
 import android.widget.ListView;
 import android.widget.SimpleCursorAdapter;
+import android.widget.TextView;
 
 
 /**
@@ -61,6 +62,7 @@ public class NotesList extends ListActivity {
     private static final String[] PROJECTION = new String[] {
             NotePad.Notes._ID, // 0
             NotePad.Notes.COLUMN_NAME_TITLE, // 1
+            NotePad.Notes.COLUMN_NAME_MODIFICATION_DATE
     };
 
     /** The index of the title column */
@@ -101,11 +103,19 @@ public class NotesList extends ListActivity {
          *
          * Please see the introductory note about performing provider operations on the UI thread.
          */
+        String selection = null;
+        String[] selectionArgs = null;
+        String keyword = getIntent().getStringExtra("SEARCH_KEYWORD");
+        if (keyword != null && !keyword.isEmpty()) {
+            selection = NotePad.Notes.COLUMN_NAME_TITLE + " LIKE ? OR "
+                    + NotePad.Notes.COLUMN_NAME_NOTE + " LIKE ?";
+            selectionArgs = new String[]{"%" + keyword + "%", "%" + keyword + "%"};
+        }
         Cursor cursor = managedQuery(
             getIntent().getData(),            // Use the default content URI for the provider.
             PROJECTION,                       // Return the note ID and title for each note.
-            null,                             // No where clause, return all records.
-            null,                             // No where clause, therefore no where column values.
+            selection,                             // No where clause, return all records.
+            selectionArgs,                             // No where clause, therefore no where column values.
             NotePad.Notes.DEFAULT_SORT_ORDER  // Use the default sort order.
         );
 
@@ -118,15 +128,15 @@ public class NotesList extends ListActivity {
          */
 
         // The names of the cursor columns to display in the view, initialized to the title column
-        String[] dataColumns = { NotePad.Notes.COLUMN_NAME_TITLE } ;
+        String[] dataColumns = { NotePad.Notes.COLUMN_NAME_TITLE ,NotePad.Notes.COLUMN_NAME_MODIFICATION_DATE} ;
 
         // The view IDs that will display the cursor columns, initialized to the TextView in
         // noteslist_item.xml
-        int[] viewIDs = { android.R.id.text1 };
+        int[] viewIDs = { android.R.id.text1 , android.R.id.text2};
 
         // Creates the backing adapter for the ListView.
         SimpleCursorAdapter adapter
-            = new SimpleCursorAdapter(
+            = new MyCursorAdapter(
                       this,                             // The Context for the ListView
                       R.layout.noteslist_item,          // Points to the XML for a list item
                       cursor,                           // The cursor to get items from
@@ -136,6 +146,37 @@ public class NotesList extends ListActivity {
 
         // Sets the ListView's adapter to be the cursor adapter that was just created.
         setListAdapter(adapter);
+
+        //添加搜索栏
+        android.widget.EditText searchInput = new android.widget.EditText(this);
+        searchInput.setHint("在此输入关键字搜索...");
+        searchInput.setSingleLine(true);
+
+        getListView().addHeaderView(searchInput, null, false);
+
+        searchInput.setOnEditorActionListener(new android.widget.TextView.OnEditorActionListener() {
+            @Override
+            public boolean onEditorAction(android.widget.TextView v, int actionId, android.view.KeyEvent event) {
+                if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH ||
+                        (event != null && event.getKeyCode() == android.view.KeyEvent.KEYCODE_ENTER)) {
+
+                    String keyword = v.getText().toString().trim();
+                    doSearch(keyword); // 调用我们自己写的搜索方法
+                    return true;
+                }
+                return false;
+            }
+        });
+    }
+
+    public void doSearch(String keyword){
+        Intent intent = new Intent(this, NotesList.class);
+        if (keyword != null && !keyword.isEmpty()) {
+            intent.putExtra("SEARCH_KEYWORD", keyword);
+        }
+
+        startActivity(intent);
+        finish();
     }
 
     /**
@@ -265,24 +306,25 @@ public class NotesList extends ListActivity {
     public boolean onOptionsItemSelected(MenuItem item) {
         if (item.getItemId() == R.id.menu_add) {
             /*
-             * Launches a new Activity using an Intent. The intent filter for the Activity
-             * has to have action ACTION_INSERT. No category is set, so DEFAULT is assumed.
-             * In effect, this starts the NoteEditor Activity in NotePad.
+             * 显式启动 NoteEditor，并携带 ACTION_INSERT 和当前数据。
              */
-            startActivity(new Intent(Intent.ACTION_INSERT, getIntent().getData()));
+            Intent intent = new Intent(this, NoteEditor.class);
+            intent.setAction(Intent.ACTION_INSERT);
+            intent.setData(getIntent().getData());
+            startActivity(intent);
             return true;
         } else if (item.getItemId() == R.id.menu_paste) {
             /*
-             * Launches a new Activity using an Intent. The intent filter for the Activity
-             * has to have action ACTION_PASTE. No category is set, so DEFAULT is assumed.
-             * In effect, this starts the NoteEditor Activity in NotePad.
+             * 显式启动 NoteEditor，并携带 ACTION_PASTE 和当前数据。
              */
-            startActivity(new Intent(Intent.ACTION_PASTE, getIntent().getData()));
+            Intent intent = new Intent(this, NoteEditor.class);
+            intent.setAction(Intent.ACTION_PASTE);
+            intent.setData(getIntent().getData());
+            startActivity(intent);
             return true;
         }
         return super.onOptionsItemSelected(item);
     }
-
     /**
      * This method is called when the user context-clicks a note in the list. NotesList registers
      * itself as the handler for context menus in its ListView (this is done in onCreate()).
@@ -393,8 +435,11 @@ public class NotesList extends ListActivity {
          */
         int id = item.getItemId();
         if (id == R.id.context_open) {
-            // Launch activity to view/edit the currently selected item
-            startActivity(new Intent(Intent.ACTION_EDIT, noteUri));
+            // 显式启动 NoteEditor，并携带 ACTION_EDIT 和笔记 URI
+            Intent intent = new Intent(this, NoteEditor.class);
+            intent.setAction(Intent.ACTION_EDIT);
+            intent.setData(noteUri);
+            startActivity(intent);
             return true;
         } else if (id == R.id.context_copy) { //BEGIN_INCLUDE(copy)
             // Gets a handle to the clipboard service.
@@ -455,9 +500,35 @@ public class NotesList extends ListActivity {
             setResult(RESULT_OK, new Intent().setData(uri));
         } else {
 
-            // Sends out an Intent to start an Activity that can handle ACTION_EDIT. The
-            // Intent's data is the note ID URI. The effect is to call NoteEdit.
-            startActivity(new Intent(Intent.ACTION_EDIT, uri));
+            // 显式启动 NoteEditor，并携带 ACTION_EDIT 和笔记 URI
+            Intent intent = new Intent(this, NoteEditor.class);
+            intent.setAction(Intent.ACTION_EDIT);
+            intent.setData(uri);
+            startActivity(intent);
+        }
+    }
+    //用于把时间戳转换成日期
+    private class MyCursorAdapter extends SimpleCursorAdapter {
+        public MyCursorAdapter(Context context, int layout, Cursor c, String[] from, int[] to) {
+            super(context, layout, c, from, to);
+        }
+
+        @Override
+        public void bindView(View view, Context context, Cursor cursor) {
+            super.bindView(view, context, cursor);
+
+            TextView timeView = (TextView) view.findViewById(android.R.id.text2);
+
+            if (timeView != null) {
+
+                long timestamp = cursor.getLong(cursor.getColumnIndex(NotePad.Notes.COLUMN_NAME_MODIFICATION_DATE));
+
+                java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault());
+                sdf.setTimeZone(java.util.TimeZone.getTimeZone("Asia/Shanghai"));
+                String timeString = sdf.format(new java.util.Date(timestamp));
+
+                timeView.setText(timeString);
+            }
         }
     }
 }
