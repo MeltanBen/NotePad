@@ -26,6 +26,7 @@ import android.content.ContentUris;
 import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
@@ -36,6 +37,8 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ContextMenu.ContextMenuInfo;
 import android.widget.AdapterView;
+import android.widget.CheckBox;
+import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.SimpleCursorAdapter;
 import android.widget.TextView;
@@ -62,7 +65,8 @@ public class NotesList extends ListActivity {
     private static final String[] PROJECTION = new String[] {
             NotePad.Notes._ID, // 0
             NotePad.Notes.COLUMN_NAME_TITLE, // 1
-            NotePad.Notes.COLUMN_NAME_MODIFICATION_DATE
+            NotePad.Notes.COLUMN_NAME_MODIFICATION_DATE,
+            NotePad.Notes.COLUMN_NAME_IS_TODO
     };
 
     /** The index of the title column */
@@ -73,7 +77,17 @@ public class NotesList extends ListActivity {
      */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        android.content.SharedPreferences prefs = getSharedPreferences("app_settings", MODE_PRIVATE);
+        int currentTheme = prefs.getInt("theme_mode", 1);
+
+        if (currentTheme == 1) {
+            setTheme(android.R.style.Theme_Holo);
+        } else {
+            setTheme(android.R.style.Theme_Holo_Light);
+        }
         super.onCreate(savedInstanceState);
+
+        getListView().setDivider(null);
 
         // The user does not need to hold down the key to use menu shortcuts.
         setDefaultKeyMode(DEFAULT_KEYS_SHORTCUT);
@@ -103,20 +117,67 @@ public class NotesList extends ListActivity {
          *
          * Please see the introductory note about performing provider operations on the UI thread.
          */
+
+        String searchmod = getIntent().getStringExtra("SEARCHMOD");
+        String mod=getIntent().getStringExtra("MODE");
+
+
+
+        if(searchmod!=null&&searchmod.equals("SEARCH")){
+            //添加搜索栏
+            android.widget.EditText searchInput = new android.widget.EditText(this);
+            searchInput.setHint("在此输入关键字搜索...");
+            searchInput.setSingleLine(true);
+
+            getListView().addHeaderView(searchInput, null, false);
+
+            searchInput.setOnEditorActionListener(new android.widget.TextView.OnEditorActionListener() {
+                @Override
+                public boolean onEditorAction(android.widget.TextView v, int actionId, android.view.KeyEvent event) {
+                    if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH ||
+                            (event != null && event.getKeyCode() == android.view.KeyEvent.KEYCODE_ENTER)) {
+
+                        String keyword = v.getText().toString().trim();
+                        doSearch(keyword); // 调用我们自己写的搜索方法
+                        return true;
+                    }
+                    return false;
+                }
+            });
+        }
         String selection = null;
         String[] selectionArgs = null;
+
+        if (mod == null || "NOTE".equals(mod)) {
+
+            selection = NotePad.Notes.COLUMN_NAME_IS_TODO + " = ?";
+            selectionArgs = new String[]{"0"};
+        } else {
+
+            selection = NotePad.Notes.COLUMN_NAME_IS_TODO + " IN (?, ?)";
+            selectionArgs = new String[]{"1", "2"};
+        }
+
         String keyword = getIntent().getStringExtra("SEARCH_KEYWORD");
         if (keyword != null && !keyword.isEmpty()) {
-            selection = NotePad.Notes.COLUMN_NAME_TITLE + " LIKE ? OR "
-                    + NotePad.Notes.COLUMN_NAME_NOTE + " LIKE ?";
-            selectionArgs = new String[]{"%" + keyword + "%", "%" + keyword + "%"};
+
+            selection = selection + " AND ("
+                    + NotePad.Notes.COLUMN_NAME_TITLE + " LIKE ? OR "
+                    + NotePad.Notes.COLUMN_NAME_NOTE + " LIKE ?)";
+
+            String[] searchArgs = new String[]{"%" + keyword + "%", "%" + keyword + "%"};
+            String[] newArgs = new String[selectionArgs.length + searchArgs.length];
+            System.arraycopy(selectionArgs, 0, newArgs, 0, selectionArgs.length);
+            System.arraycopy(searchArgs, 0, newArgs, selectionArgs.length, searchArgs.length);
+            selectionArgs = newArgs;
         }
+
         Cursor cursor = managedQuery(
-            getIntent().getData(),            // Use the default content URI for the provider.
-            PROJECTION,                       // Return the note ID and title for each note.
-            selection,                             // No where clause, return all records.
-            selectionArgs,                             // No where clause, therefore no where column values.
-            NotePad.Notes.DEFAULT_SORT_ORDER  // Use the default sort order.
+                getIntent().getData(),            // Use the default content URI for the provider.
+                PROJECTION,                       // Return the note ID and title for each note.
+                selection,                             // No where clause, return all records.
+                selectionArgs,                             // No where clause, therefore no where column values.
+                NotePad.Notes.DEFAULT_SORT_ORDER  // Use the default sort order.
         );
 
         /*
@@ -136,43 +197,159 @@ public class NotesList extends ListActivity {
 
         // Creates the backing adapter for the ListView.
         SimpleCursorAdapter adapter
-            = new MyCursorAdapter(
-                      this,                             // The Context for the ListView
-                      R.layout.noteslist_item,          // Points to the XML for a list item
-                      cursor,                           // The cursor to get items from
-                      dataColumns,
-                      viewIDs
-              );
+                = new MyCursorAdapter(
+                this,                             // The Context for the ListView
+                R.layout.noteslist_item,          // Points to the XML for a list item
+                cursor,                           // The cursor to get items from
+                dataColumns,
+                viewIDs
+        );
 
         // Sets the ListView's adapter to be the cursor adapter that was just created.
         setListAdapter(adapter);
 
-        //添加搜索栏
-        android.widget.EditText searchInput = new android.widget.EditText(this);
-        searchInput.setHint("在此输入关键字搜索...");
-        searchInput.setSingleLine(true);
+        if (currentTheme == 1) {
+            getListView().setBackgroundColor(android.graphics.Color.BLACK);
+        } else {
+            getListView().setBackgroundColor(android.graphics.Color.parseColor("#F0F0F0"));
+        }
 
-        getListView().addHeaderView(searchInput, null, false);
 
-        searchInput.setOnEditorActionListener(new android.widget.TextView.OnEditorActionListener() {
+        final TextView fab = new TextView(this);
+        fab.setText("+");
+        fab.setTextSize(36);
+        fab.setTextColor(android.graphics.Color.WHITE);
+        fab.setGravity(android.view.Gravity.CENTER);
+
+
+        android.graphics.drawable.GradientDrawable bgShape = new android.graphics.drawable.GradientDrawable();
+        bgShape.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+        bgShape.setColor(android.graphics.Color.parseColor("#4CAF50"));
+        fab.setBackground(bgShape);
+
+
+        int size = 140;
+        android.widget.FrameLayout.LayoutParams params = new android.widget.FrameLayout.LayoutParams(size, size);
+        params.gravity = android.view.Gravity.BOTTOM | android.view.Gravity.END;
+        params.setMargins(0, 0, 40, 200);
+
+        addContentView(fab, params);
+
+        fab.setOnClickListener(new View.OnClickListener() {
             @Override
-            public boolean onEditorAction(android.widget.TextView v, int actionId, android.view.KeyEvent event) {
-                if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH ||
-                        (event != null && event.getKeyCode() == android.view.KeyEvent.KEYCODE_ENTER)) {
-
-                    String keyword = v.getText().toString().trim();
-                    doSearch(keyword); // 调用我们自己写的搜索方法
-                    return true;
+            public void onClick(View v) {
+                if(mod==null||mod.equals("NOTE")){
+                    Intent intent = new Intent(NotesList.this, NoteEditor.class);
+                    intent.setAction(Intent.ACTION_INSERT);
+                    intent.setData(getIntent().getData());
+                    startActivity(intent);
                 }
-                return false;
+                else{
+                    showAddTodoDialog();
+
+                }
+
+            }
+        });
+        android.view.View bottomBar = android.view.LayoutInflater.from(this).inflate(R.layout.bottom_nav, null);
+
+
+        android.widget.FrameLayout.LayoutParams params0 = new android.widget.FrameLayout.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                150);
+        params0.gravity = android.view.Gravity.BOTTOM;
+
+        addContentView(bottomBar, params0);
+        View emptyFooter = new View(this);
+        emptyFooter.setLayoutParams(new android.widget.AbsListView.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                150
+        ));
+        getListView().addFooterView(emptyFooter);
+        if (currentTheme == 1) {
+            bottomBar.setBackgroundColor(Color.parseColor("#222222"));
+        } else {
+            bottomBar.setBackgroundColor(Color.parseColor("#EEEEEE"));
+        }
+
+        TextView btnAll = (TextView) bottomBar.findViewById(R.id.btn_all_notes);
+        TextView btnTodo = (TextView) bottomBar.findViewById(R.id.btn_todo);
+
+        if(mod==null||mod.equals("NOTE")){
+            btnAll.setTextColor(Color.parseColor("#4CAF50"));
+            btnTodo.setTextColor(Color.parseColor("#999999"));
+        }
+        else{
+            btnAll.setTextColor(Color.parseColor("#999999"));
+            btnTodo.setTextColor(Color.parseColor("#4CAF50"));
+        }
+
+
+        btnAll.setOnClickListener(new android.view.View.OnClickListener() {
+            @Override
+            public void onClick(android.view.View v) {
+                if (mod == null||mod.equals("NOTE")) return;
+                Intent intent = new Intent(NotesList.this, NotesList.class);
+                intent.putExtra("MODE", "NOTE");
+                startActivity(intent);
+                finish();
+            }
+        });
+
+        btnTodo.setOnClickListener(new android.view.View.OnClickListener() {
+            @Override
+            public void onClick(android.view.View v) {
+                if (mod!=null&&mod.equals("TODO")) return;
+                Intent intent = new Intent(NotesList.this, NotesList.class);
+                intent.putExtra("MODE", "TODO");
+                startActivity(intent);
+                finish();
             }
         });
     }
 
+    // 单独的待办弹窗方法
+    private void showAddTodoDialog() {
+        final android.widget.EditText input = new android.widget.EditText(this);
+        input.setHint("请输入待办事项...");
+        input.setPadding(40, 30, 40, 30);
+
+        new android.app.AlertDialog.Builder(this)
+                .setTitle("新建待办")
+                .setView(input)
+                .setPositiveButton("添加", new android.content.DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(android.content.DialogInterface dialog, int which) {
+                        String todoText = input.getText().toString().trim();
+                        if (!todoText.isEmpty()) {
+                            android.content.ContentValues values = new android.content.ContentValues();
+                            values.put(NotePad.Notes.COLUMN_NAME_TITLE, todoText);
+                            values.put(NotePad.Notes.COLUMN_NAME_NOTE, "待办事项：请尽快完成。");
+                            values.put(NotePad.Notes.COLUMN_NAME_IS_TODO, 1); // 1 代表待办
+
+                            long now = System.currentTimeMillis();
+                            values.put(NotePad.Notes.COLUMN_NAME_CREATE_DATE, now);
+                            values.put(NotePad.Notes.COLUMN_NAME_MODIFICATION_DATE, now);
+
+                            getContentResolver().insert(NotePad.Notes.CONTENT_URI, values);
+
+                            // 刷新当前页面
+                            startActivity(getIntent());
+                            finish();
+                        }
+                    }
+                })
+                .setNegativeButton("取消", null)
+                .show();
+    }
+
+
     public void doSearch(String keyword){
+
         Intent intent = new Intent(this, NotesList.class);
         if (keyword != null && !keyword.isEmpty()) {
             intent.putExtra("SEARCH_KEYWORD", keyword);
+            intent.putExtra("SEARCHMOD", "SEARCH");
         }
 
         startActivity(intent);
@@ -206,7 +383,7 @@ public class NotesList extends ListActivity {
         intent.addCategory(Intent.CATEGORY_ALTERNATIVE);
         menu.addIntentOptions(Menu.CATEGORY_ALTERNATIVE, 0, 0,
                 new ComponentName(this, NotesList.class), null, intent, 0, null);
-
+        menu.add(0, 666, 0, "切换深/浅模式");
         return super.onCreateOptionsMenu(menu);
     }
 
@@ -304,16 +481,17 @@ public class NotesList extends ListActivity {
      */
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        if (item.getItemId() == R.id.menu_add) {
-            /*
-             * 显式启动 NoteEditor，并携带 ACTION_INSERT 和当前数据。
-             */
-            Intent intent = new Intent(this, NoteEditor.class);
-            intent.setAction(Intent.ACTION_INSERT);
-            intent.setData(getIntent().getData());
-            startActivity(intent);
-            return true;
-        } else if (item.getItemId() == R.id.menu_paste) {
+//        if (item.getItemId() == R.id.menu_add) {
+//            /*
+//             * 显式启动 NoteEditor，并携带 ACTION_INSERT 和当前数据。
+//             */
+//            Intent intent = new Intent(this, NoteEditor.class);
+//            intent.setAction(Intent.ACTION_INSERT);
+//            intent.setData(getIntent().getData());
+//            startActivity(intent);
+//            return true;
+//        } else
+        if (item.getItemId() == R.id.menu_paste) {
             /*
              * 显式启动 NoteEditor，并携带 ACTION_PASTE 和当前数据。
              */
@@ -322,6 +500,28 @@ public class NotesList extends ListActivity {
             intent.setData(getIntent().getData());
             startActivity(intent);
             return true;
+        } else if (item.getItemId()==R.id.menu_search) {
+            String mod = getIntent().getStringExtra("SEARCHMOD");
+            Intent intent = new Intent(this, NotesList.class);
+            if(mod==null||!mod.equals("SEARCH")){
+                intent.putExtra("SEARCHMOD","SEARCH");
+            }
+            else{
+                intent.putExtra("SEARCHMOD","NOTE");
+            }
+            startActivity(intent);
+            finish();
+
+
+        } else if(item.getItemId()==666){
+            android.content.SharedPreferences prefs = getSharedPreferences("app_settings", MODE_PRIVATE);
+            int currentTheme = prefs.getInt("theme_mode", 1);
+            int newTheme = (currentTheme == 1) ? 0 : 1;
+            prefs.edit().putInt("theme_mode", newTheme).apply();
+
+            recreate();
+            return true;
+
         }
         return super.onOptionsItemSelected(item);
     }
@@ -340,7 +540,9 @@ public class NotesList extends ListActivity {
      */
     @Override
     public void onCreateContextMenu(ContextMenu menu, View view, ContextMenuInfo menuInfo) {
-
+        if(getIntent().getStringExtra("MODE")!=null&&getIntent().getStringExtra("MODE").equals("TODO")){
+            return;
+        }
         // The data from the menu item.
         AdapterView.AdapterContextMenuInfo info;
 
@@ -360,7 +562,9 @@ public class NotesList extends ListActivity {
          * the adapter associated all of the data for a note with its list item. As a result,
          * getItem() returns that data as a Cursor.
          */
-        Cursor cursor = (Cursor) getListAdapter().getItem(info.position);
+        int realPosition = info.position - getListView().getHeaderViewsCount();
+        if(realPosition<0)return;
+        Cursor cursor = (Cursor) getListAdapter().getItem(realPosition);
 
         // If the cursor is empty, then for some reason the adapter can't get the data from the
         // provider, so returns null to the caller.
@@ -485,6 +689,44 @@ public class NotesList extends ListActivity {
      */
     @Override
     protected void onListItemClick(ListView l, View v, int position, long id) {
+        int headerCount = getListView().getHeaderViewsCount();
+        int footerCount = getListView().getFooterViewsCount();
+        int totalCount = getListAdapter().getCount();
+        if (position >= totalCount + headerCount) {
+            return;
+        }
+        if(getIntent().getStringExtra("MODE")!=null&&getIntent().getStringExtra("MODE").equals("TODO")){
+            new android.app.AlertDialog.Builder(this)
+                    .setTitle("更改状态")
+                    .setMessage("是否将这个代办标记为【已完成】/【未完成】？")
+                    .setPositiveButton("切换状态", new android.content.DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(android.content.DialogInterface dialog, int which) {
+
+                            android.net.Uri noteUri = android.content.ContentUris.withAppendedId(NotePad.Notes.CONTENT_URI, id);
+
+                            android.database.Cursor c = getContentResolver().query(noteUri, new String[]{NotePad.Notes.COLUMN_NAME_IS_TODO}, null, null, null);
+                            int currentStatus = 1;
+                            if (c != null && c.moveToFirst()) {
+                                currentStatus = c.getInt(0);
+                                c.close();
+                            }
+
+                            // 如果原来是 1 就变 2，是 2 就变 1
+                            int newStatus = (currentStatus == 1) ? 2 : 1;
+
+                            android.content.ContentValues values = new android.content.ContentValues();
+                            values.put(NotePad.Notes.COLUMN_NAME_IS_TODO, newStatus);
+                            getContentResolver().update(noteUri, values, null, null);
+
+                            recreate(); // 刷新页面
+                        }
+                    })
+                    .setNegativeButton("取消", null)
+                    .show();
+            return; // 结束，不往下执行跳转编辑页面的代码
+
+        }
 
         // Constructs a new URI from the incoming URI and the row ID
         Uri uri = ContentUris.withAppendedId(getIntent().getData(), id);
@@ -507,7 +749,7 @@ public class NotesList extends ListActivity {
             startActivity(intent);
         }
     }
-    //用于把时间戳转换成日期
+
     private class MyCursorAdapter extends SimpleCursorAdapter {
         public MyCursorAdapter(Context context, int layout, Cursor c, String[] from, int[] to) {
             super(context, layout, c, from, to);
@@ -516,19 +758,65 @@ public class NotesList extends ListActivity {
         @Override
         public void bindView(View view, Context context, Cursor cursor) {
             super.bindView(view, context, cursor);
+            android.content.SharedPreferences prefs = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE);
+            int currentTheme = prefs.getInt("theme_mode", 1);
 
             TextView timeView = (TextView) view.findViewById(android.R.id.text2);
+            TextView text1 = (TextView) view.findViewById(android.R.id.text1);
+            View listbackground = view.findViewById(R.id.listitem);
+            CheckBox cbTodo = (CheckBox) view.findViewById(R.id.cb_todo);
 
-            if (timeView != null) {
+            // 画背景
+            android.graphics.drawable.GradientDrawable drawable = new android.graphics.drawable.GradientDrawable();
+            drawable.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
+            drawable.setCornerRadius(30f);
+            if (currentTheme == 1) {
+                text1.setTextColor(android.graphics.Color.WHITE);
+                drawable.setColor(android.graphics.Color.parseColor("#222222"));
+            } else {
+                text1.setTextColor(android.graphics.Color.BLACK);
+                drawable.setColor(Color.WHITE);
+            }
+            listbackground.setBackground(drawable);
 
-                long timestamp = cursor.getLong(cursor.getColumnIndex(NotePad.Notes.COLUMN_NAME_MODIFICATION_DATE));
+            // 获取状态
+            int isTodoCol = cursor.getColumnIndex(NotePad.Notes.COLUMN_NAME_IS_TODO);
+            int isTodo = (isTodoCol != -1) ? cursor.getInt(isTodoCol) : 0;
 
-                java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault());
-                sdf.setTimeZone(java.util.TimeZone.getTimeZone("Asia/Shanghai"));
-                String timeString = sdf.format(new java.util.Date(timestamp));
+            // 文字加删除线
+            if (isTodo == 2) {
+                text1.setPaintFlags(text1.getPaintFlags() | android.graphics.Paint.STRIKE_THRU_TEXT_FLAG);
+                text1.setTextColor(android.graphics.Color.GRAY);
+            } else {
+                text1.setPaintFlags(text1.getPaintFlags() & (~android.graphics.Paint.STRIKE_THRU_TEXT_FLAG));
+                if (currentTheme == 1) {
+                    text1.setTextColor(android.graphics.Color.WHITE);
+                } else {
+                    text1.setTextColor(android.graphics.Color.parseColor("#222222"));
+                }
+            }
 
-                timeView.setText(timeString);
+            if (cbTodo != null) {
+                cbTodo.setOnCheckedChangeListener(null);
+                cbTodo.setOnClickListener(null);
+
+                if (isTodo == 1 || isTodo == 2) {
+                    cbTodo.setVisibility(View.VISIBLE);
+                    cbTodo.setChecked(isTodo == 2);
+                } else {
+                    cbTodo.setVisibility(View.GONE);
+                }
+
+                timeView.setTextColor(android.graphics.Color.parseColor("#999999"));
+                if (timeView != null) {
+                    long timestamp = cursor.getLong(cursor.getColumnIndex(NotePad.Notes.COLUMN_NAME_MODIFICATION_DATE));
+                    java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault());
+                    sdf.setTimeZone(java.util.TimeZone.getTimeZone("Asia/Shanghai"));
+                    String timeString = sdf.format(new java.util.Date(timestamp));
+                    timeView.setText(timeString);
+                }
             }
         }
     }
+
 }

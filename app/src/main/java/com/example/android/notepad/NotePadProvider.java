@@ -63,7 +63,7 @@ public class NotePadProvider extends ContentProvider implements PipeDataWriter<C
     /**
      * The database version
      */
-    private static final int DATABASE_VERSION = 2;
+    private static final int DATABASE_VERSION = 3;
 
     /**
      * A projection map used to select columns from the database
@@ -169,6 +169,9 @@ public class NotePadProvider extends ContentProvider implements PipeDataWriter<C
         // Maps "NAME" to "title AS NAME"
         sLiveFolderProjectionMap.put(LiveFolders.NAME, NotePad.Notes.COLUMN_NAME_TITLE + " AS " +
             LiveFolders.NAME);
+
+        sNotesProjectionMap.put(NotePad.Notes.COLUMN_NAME_IS_TODO,
+                NotePad.Notes.COLUMN_NAME_IS_TODO);
     }
 
     /**
@@ -196,7 +199,8 @@ public class NotePadProvider extends ContentProvider implements PipeDataWriter<C
                    + NotePad.Notes.COLUMN_NAME_TITLE + " TEXT,"
                    + NotePad.Notes.COLUMN_NAME_NOTE + " TEXT,"
                    + NotePad.Notes.COLUMN_NAME_CREATE_DATE + " INTEGER,"
-                   + NotePad.Notes.COLUMN_NAME_MODIFICATION_DATE + " INTEGER"
+                   + NotePad.Notes.COLUMN_NAME_MODIFICATION_DATE + " INTEGER,"
+                   + NotePad.Notes.COLUMN_NAME_IS_TODO + " INTEGER DEFAULT 0"
                    + ");");
        }
 
@@ -538,6 +542,10 @@ public class NotePadProvider extends ContentProvider implements PipeDataWriter<C
         // If the values map doesn't contain note text, sets the value to an empty string.
         if (values.containsKey(NotePad.Notes.COLUMN_NAME_NOTE) == false) {
             values.put(NotePad.Notes.COLUMN_NAME_NOTE, "");
+        }
+        //默认是笔记
+        if (values.containsKey(NotePad.Notes.COLUMN_NAME_IS_TODO) == false) {
+            values.put(NotePad.Notes.COLUMN_NAME_IS_TODO, 0);
         }
 
         // Opens the database object in "write" mode.

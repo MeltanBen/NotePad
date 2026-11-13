@@ -105,30 +105,30 @@ public class NoteEditor extends Activity {
         @Override
         protected void onDraw(Canvas canvas) {
 
-            // Gets the number of lines of text in the View.
-            int count = getLineCount();
-
-            // Gets the global Rect and Paint objects
-            Rect r = mRect;
-            Paint paint = mPaint;
-
-            /*
-             * Draws one line in the rectangle for every line of text in the EditText
-             */
-            for (int i = 0; i < count; i++) {
-
-                // Gets the baseline coordinates for the current line of text
-                int baseline = getLineBounds(i, r);
-
-                /*
-                 * Draws a line in the background from the left of the rectangle to the right,
-                 * at a vertical position one dip below the baseline, using the "paint" object
-                 * for details.
-                 */
-                canvas.drawLine(r.left, baseline + 1, r.right, baseline + 1, paint);
-            }
-
-            // Finishes up by calling the parent method
+//            // Gets the number of lines of text in the View.
+//            int count = getLineCount();
+//
+//            // Gets the global Rect and Paint objects
+//            Rect r = mRect;
+//            Paint paint = mPaint;
+//
+//            /*
+//             * Draws one line in the rectangle for every line of text in the EditText
+//             */
+//            for (int i = 0; i < count; i++) {
+//
+//                // Gets the baseline coordinates for the current line of text
+//                int baseline = getLineBounds(i, r);
+//
+//                /*
+//                 * Draws a line in the background from the left of the rectangle to the right,
+//                 * at a vertical position one dip below the baseline, using the "paint" object
+//                 * for details.
+//                 */
+//                canvas.drawLine(r.left, baseline + 1, r.right, baseline + 1, paint);
+//            }
+//
+//            // Finishes up by calling the parent method
             super.onDraw(canvas);
         }
     }
@@ -139,6 +139,15 @@ public class NoteEditor extends Activity {
      */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        android.content.SharedPreferences prefs = getSharedPreferences("app_settings", MODE_PRIVATE);
+        int currentTheme = prefs.getInt("theme_mode", 1);
+
+        if (currentTheme == 1) {
+            setTheme(android.R.style.Theme_Holo);
+            getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.BLACK));
+        } else {
+            setTheme(android.R.style.Theme_Holo_Light_DarkActionBar);
+        }
         super.onCreate(savedInstanceState);
 
         /*
