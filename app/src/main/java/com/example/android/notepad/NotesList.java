@@ -18,6 +18,7 @@ package com.example.android.notepad;
 
 import com.example.android.notepad.NotePad;
 
+import android.app.ActionBar;
 import android.app.ListActivity;
 import android.content.ClipboardManager;
 import android.content.ClipData;
@@ -27,6 +28,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
 import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
@@ -55,6 +57,8 @@ import android.widget.TextView;
  * {@link android.os.AsyncTask} object to perform operations asynchronously on a separate thread.
  */
 public class NotesList extends ListActivity {
+    //主题颜色
+    private int themeColor = android.graphics.Color.parseColor("#4CAF50");
 
     // For logging and debugging
     private static final String TAG = "NotesList";
@@ -79,11 +83,12 @@ public class NotesList extends ListActivity {
     protected void onCreate(Bundle savedInstanceState) {
         android.content.SharedPreferences prefs = getSharedPreferences("app_settings", MODE_PRIVATE);
         int currentTheme = prefs.getInt("theme_mode", 1);
+        themeColor = prefs.getInt("theme_color", android.graphics.Color.parseColor("#4CAF50"));
 
         if (currentTheme == 1) {
             setTheme(android.R.style.Theme_Holo);
         } else {
-            setTheme(android.R.style.Theme_Holo_Light);
+            setTheme(android.R.style.Theme_Holo_Light_DarkActionBar);
         }
         super.onCreate(savedInstanceState);
 
@@ -224,7 +229,7 @@ public class NotesList extends ListActivity {
 
         android.graphics.drawable.GradientDrawable bgShape = new android.graphics.drawable.GradientDrawable();
         bgShape.setShape(android.graphics.drawable.GradientDrawable.OVAL);
-        bgShape.setColor(android.graphics.Color.parseColor("#4CAF50"));
+        bgShape.setColor(themeColor);
         fab.setBackground(bgShape);
 
 
@@ -269,19 +274,28 @@ public class NotesList extends ListActivity {
         if (currentTheme == 1) {
             bottomBar.setBackgroundColor(Color.parseColor("#222222"));
         } else {
-            bottomBar.setBackgroundColor(Color.parseColor("#EEEEEE"));
+            bottomBar.setBackgroundColor(Color.parseColor("#E0E0E0"));
         }
 
         TextView btnAll = (TextView) bottomBar.findViewById(R.id.btn_all_notes);
         TextView btnTodo = (TextView) bottomBar.findViewById(R.id.btn_todo);
 
         if(mod==null||mod.equals("NOTE")){
-            btnAll.setTextColor(Color.parseColor("#4CAF50"));
+            btnAll.setTextColor(themeColor);
             btnTodo.setTextColor(Color.parseColor("#999999"));
         }
         else{
             btnAll.setTextColor(Color.parseColor("#999999"));
-            btnTodo.setTextColor(Color.parseColor("#4CAF50"));
+            btnTodo.setTextColor(themeColor);
+        }
+
+        ActionBar actionBar = getActionBar();
+        if (actionBar != null) {
+            if (currentTheme == 1) {
+                actionBar.setBackgroundDrawable(new ColorDrawable(android.graphics.Color.parseColor("#222222")));
+            } else {
+                actionBar.setBackgroundDrawable(new ColorDrawable(themeColor));
+            }
         }
 
 
@@ -384,6 +398,7 @@ public class NotesList extends ListActivity {
         menu.addIntentOptions(Menu.CATEGORY_ALTERNATIVE, 0, 0,
                 new ComponentName(this, NotesList.class), null, intent, 0, null);
         menu.add(0, 666, 0, "切换深/浅模式");
+        menu.add(0, 999, 0, "更换主题色");
         return super.onCreateOptionsMenu(menu);
     }
 
@@ -523,6 +538,28 @@ public class NotesList extends ListActivity {
             return true;
 
         }
+        else if (item.getItemId() == 999) {
+            final String[] colorNames = {"默认绿", "天空蓝", "活力橙", "紫罗兰"};
+            final int[] colorValues = {
+                    android.graphics.Color.parseColor("#4CAF50"),
+                    android.graphics.Color.parseColor("#2196F3"),
+                    android.graphics.Color.parseColor("#FF9800"),
+                    android.graphics.Color.parseColor("#9C27B0")
+            };
+
+            new android.app.AlertDialog.Builder(this)
+                    .setTitle("选择主题颜色")
+                    .setItems(colorNames, new android.content.DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(android.content.DialogInterface dialog, int which) {
+                            android.content.SharedPreferences prefs = getSharedPreferences("app_settings", MODE_PRIVATE);
+                            prefs.edit().putInt("theme_color", colorValues[which]).apply();
+                            recreate(); // 刷新页面
+                        }
+                    })
+                    .show();
+            return true;
+        }
         return super.onOptionsItemSelected(item);
     }
     /**
@@ -540,9 +577,7 @@ public class NotesList extends ListActivity {
      */
     @Override
     public void onCreateContextMenu(ContextMenu menu, View view, ContextMenuInfo menuInfo) {
-        if(getIntent().getStringExtra("MODE")!=null&&getIntent().getStringExtra("MODE").equals("TODO")){
-            return;
-        }
+
         // The data from the menu item.
         AdapterView.AdapterContextMenuInfo info;
 
@@ -570,6 +605,14 @@ public class NotesList extends ListActivity {
         // provider, so returns null to the caller.
         if (cursor == null) {
             // For some reason the requested item isn't available, do nothing
+            return;
+        }
+        String title = cursor.getString(cursor.getColumnIndex(NotePad.Notes.COLUMN_NAME_TITLE));
+
+        if ("TODO".equals(getIntent().getStringExtra("MODE"))) {
+            menu.setHeaderTitle(title);
+            menu.add(0, 1, 0, "修改");
+            menu.add(0, 2, 0, "删除");
             return;
         }
 
@@ -638,6 +681,61 @@ public class NotesList extends ListActivity {
          * Gets the menu item's ID and compares it to known actions.
          */
         int id = item.getItemId();
+
+        if ("TODO".equals(getIntent().getStringExtra("MODE"))) {
+
+            if (id == 1) {
+
+                Cursor c = getContentResolver().query(noteUri, new String[]{NotePad.Notes.COLUMN_NAME_TITLE}, null, null, null);
+                String oldTitle = "";
+                if (c != null && c.moveToFirst()) {
+                    oldTitle = c.getString(0);
+                    c.close();
+                }
+
+                final android.widget.EditText input = new android.widget.EditText(this);
+                input.setText(oldTitle);
+                input.setSelection(oldTitle.length());
+
+                new android.app.AlertDialog.Builder(this)
+                        .setTitle("修改待办")
+                        .setView(input)
+                        .setPositiveButton("保存", new android.content.DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(android.content.DialogInterface dialog, int which) {
+                                String newTitle = input.getText().toString().trim();
+                                if (!newTitle.isEmpty()) {
+                                    android.content.ContentValues values = new android.content.ContentValues();
+                                    values.put(NotePad.Notes.COLUMN_NAME_TITLE, newTitle);
+
+                                    values.put(NotePad.Notes.COLUMN_NAME_MODIFICATION_DATE, System.currentTimeMillis());
+
+                                    getContentResolver().update(noteUri, values, null, null);
+                                    recreate();
+                                }
+                            }
+                        })
+                        .setNegativeButton("取消", null)
+                        .show();
+                return true;
+
+            } else if (id == 2) {
+
+                new android.app.AlertDialog.Builder(this)
+                        .setTitle("删除待办")
+                        .setMessage("确定要删除这条待办吗？")
+                        .setPositiveButton("删除", new android.content.DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(android.content.DialogInterface dialog, int which) {
+                                getContentResolver().delete(noteUri, null, null);
+                                recreate();
+                            }
+                        })
+                        .setNegativeButton("取消", null)
+                        .show();
+                return true;
+            }
+        }
         if (id == R.id.context_open) {
             // 显式启动 NoteEditor，并携带 ACTION_EDIT 和笔记 URI
             Intent intent = new Intent(this, NoteEditor.class);

@@ -18,6 +18,7 @@ package com.example.android.notepad;
 
 import static com.example.android.notepad.R.*;
 
+import android.app.ActionBar;
 import android.app.Activity;
 import android.content.ClipData;
 import android.content.ClipboardManager;
@@ -29,8 +30,10 @@ import android.content.Intent;
 import android.content.res.Resources;
 import android.database.Cursor;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
+import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.AttributeSet;
@@ -79,6 +82,7 @@ public class NoteEditor extends Activity {
     private Cursor mCursor;
     private EditText mText;
     private String mOriginalContent;
+    private int themeColor;
 
     /**
      * Defines a custom EditText View that draws lines between each line of text that is displayed.
@@ -141,14 +145,24 @@ public class NoteEditor extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         android.content.SharedPreferences prefs = getSharedPreferences("app_settings", MODE_PRIVATE);
         int currentTheme = prefs.getInt("theme_mode", 1);
+        themeColor= getSharedPreferences("app_settings", MODE_PRIVATE).getInt("theme_color", Color.parseColor("#4CAF50"));
 
         if (currentTheme == 1) {
             setTheme(android.R.style.Theme_Holo);
             getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.BLACK));
         } else {
             setTheme(android.R.style.Theme_Holo_Light_DarkActionBar);
+
         }
         super.onCreate(savedInstanceState);
+        ActionBar actionBar = getActionBar();
+        if (actionBar != null) {
+            if (currentTheme == 1) {
+                actionBar.setBackgroundDrawable(new ColorDrawable(android.graphics.Color.parseColor("#222222")));
+            } else {
+                actionBar.setBackgroundDrawable(new ColorDrawable(themeColor));
+            }
+        }
 
         /*
          * Creates an Intent to use when the Activity object's result is sent back to the
@@ -238,6 +252,7 @@ public class NoteEditor extends Activity {
 
         // Gets a handle to the EditText in the the layout.
         mText = (EditText) findViewById(R.id.note);
+        EditText mTitle = (EditText) findViewById(R.id.title);
 
         /*
          * If this Activity had stopped previously, its state was written the ORIGINAL_CONTENT
@@ -299,6 +314,8 @@ public class NoteEditor extends Activity {
             // the text cursor's position.
             int colNoteIndex = mCursor.getColumnIndex(NotePad.Notes.COLUMN_NAME_NOTE);
             String note = mCursor.getString(colNoteIndex);
+            EditText titleInput = (EditText) findViewById(R.id.title);
+            titleInput.setText(mCursor.getString(mCursor.getColumnIndex(NotePad.Notes.COLUMN_NAME_TITLE)));
             mText.setTextKeepState(note);
 
             // Stores the original note text, to allow the user to revert changes.
@@ -357,6 +374,8 @@ public class NoteEditor extends Activity {
 
             // Get the current note text.
             String text = mText.getText().toString();
+            EditText titleInput = (EditText) findViewById(R.id.title);
+            String title = titleInput.getText().toString().trim();
             int length = text.length();
 
             /*
@@ -377,9 +396,9 @@ public class NoteEditor extends Activity {
                  */
             } else if (mState == STATE_EDIT) {
                 // Creates a map to contain the new values for the columns
-                updateNote(text, null);
+                updateNote(text, title);
             } else if (mState == STATE_INSERT) {
-                updateNote(text, text);
+                updateNote(text, title);
                 mState = STATE_EDIT;
           }
         }
