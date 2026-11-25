@@ -156,5 +156,6 @@ public final class NotePad {
          * <P>Type: INTEGER</P>
          */
         public static final String COLUMN_NAME_IS_TODO = "is_todo";
+        //增加与笔记区分的数据项
     }
 }

@@ -123,12 +123,12 @@ public class NotesList extends ListActivity {
          * Please see the introductory note about performing provider operations on the UI thread.
          */
 
-        String searchmod = getIntent().getStringExtra("SEARCHMOD");
-        String mod=getIntent().getStringExtra("MODE");
+        String searchmode = getIntent().getStringExtra("SEARCHMODE");
+        String mode=getIntent().getStringExtra("MODE");
 
 
 
-        if(searchmod!=null&&searchmod.equals("SEARCH")){
+        if(searchmode!=null&&searchmode.equals("SEARCH")){
             //添加搜索栏
             android.widget.EditText searchInput = new android.widget.EditText(this);
             searchInput.setHint("在此输入关键字搜索...");
@@ -153,7 +153,7 @@ public class NotesList extends ListActivity {
         String selection = null;
         String[] selectionArgs = null;
 
-        if (mod == null || "NOTE".equals(mod)) {
+        if (mode == null || "NOTE".equals(mode)) {
 
             selection = NotePad.Notes.COLUMN_NAME_IS_TODO + " = ?";
             selectionArgs = new String[]{"0"};
@@ -163,7 +163,7 @@ public class NotesList extends ListActivity {
             selectionArgs = new String[]{"1", "2"};
         }
 
-        String keyword = getIntent().getStringExtra("SEARCH_KEYWORD");
+        String keyword = getIntent().getStringExtra("SEARCH_KEYWORD");//拿到keyword进行查询
         if (keyword != null && !keyword.isEmpty()) {
 
             selection = selection + " AND ("
@@ -243,7 +243,7 @@ public class NotesList extends ListActivity {
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if(mod==null||mod.equals("NOTE")){
+                if(mode==null||mode.equals("NOTE")){
                     Intent intent = new Intent(NotesList.this, NoteEditor.class);
                     intent.setAction(Intent.ACTION_INSERT);
                     intent.setData(getIntent().getData());
@@ -280,7 +280,7 @@ public class NotesList extends ListActivity {
         TextView btnAll = (TextView) bottomBar.findViewById(R.id.btn_all_notes);
         TextView btnTodo = (TextView) bottomBar.findViewById(R.id.btn_todo);
 
-        if(mod==null||mod.equals("NOTE")){
+        if(mode==null||mode.equals("NOTE")){
             btnAll.setTextColor(themeColor);
             btnTodo.setTextColor(Color.parseColor("#999999"));
         }
@@ -302,7 +302,7 @@ public class NotesList extends ListActivity {
         btnAll.setOnClickListener(new android.view.View.OnClickListener() {
             @Override
             public void onClick(android.view.View v) {
-                if (mod == null||mod.equals("NOTE")) return;
+                if (mode == null||mode.equals("NOTE")) return;
                 Intent intent = new Intent(NotesList.this, NotesList.class);
                 intent.putExtra("MODE", "NOTE");
                 startActivity(intent);
@@ -313,7 +313,7 @@ public class NotesList extends ListActivity {
         btnTodo.setOnClickListener(new android.view.View.OnClickListener() {
             @Override
             public void onClick(android.view.View v) {
-                if (mod!=null&&mod.equals("TODO")) return;
+                if (mode!=null&&mode.equals("TODO")) return;
                 Intent intent = new Intent(NotesList.this, NotesList.class);
                 intent.putExtra("MODE", "TODO");
                 startActivity(intent);
@@ -357,13 +357,13 @@ public class NotesList extends ListActivity {
                 .show();
     }
 
-
+    //执行搜索方法，把keyword传入下一个页面进行查询
     public void doSearch(String keyword){
 
         Intent intent = new Intent(this, NotesList.class);
         if (keyword != null && !keyword.isEmpty()) {
             intent.putExtra("SEARCH_KEYWORD", keyword);
-            intent.putExtra("SEARCHMOD", "SEARCH");
+            intent.putExtra("SEARCHMODE", "SEARCH");
         }
 
         startActivity(intent);
@@ -515,14 +515,14 @@ public class NotesList extends ListActivity {
             intent.setData(getIntent().getData());
             startActivity(intent);
             return true;
-        } else if (item.getItemId()==R.id.menu_search) {
-            String mod = getIntent().getStringExtra("SEARCHMOD");
+        } else if (item.getItemId()==R.id.menu_search) {//点击放大镜切换到搜索模式，重新加载页面
+            String mode = getIntent().getStringExtra("SEARCHMODE");
             Intent intent = new Intent(this, NotesList.class);
-            if(mod==null||!mod.equals("SEARCH")){
-                intent.putExtra("SEARCHMOD","SEARCH");
+            if(mode==null||!mode.equals("SEARCH")){
+                intent.putExtra("SEARCHMODE","SEARCH");
             }
             else{
-                intent.putExtra("SEARCHMOD","NOTE");
+                intent.putExtra("SEARCHMODE","NOTE");
             }
             startActivity(intent);
             finish();
@@ -905,6 +905,7 @@ public class NotesList extends ListActivity {
                     cbTodo.setVisibility(View.GONE);
                 }
 
+                //把时间戳转换成日期形式并展示
                 timeView.setTextColor(android.graphics.Color.parseColor("#999999"));
                 if (timeView != null) {
                     long timestamp = cursor.getLong(cursor.getColumnIndex(NotePad.Notes.COLUMN_NAME_MODIFICATION_DATE));

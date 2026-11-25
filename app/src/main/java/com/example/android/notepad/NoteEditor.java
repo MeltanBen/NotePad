@@ -143,6 +143,7 @@ public class NoteEditor extends Activity {
      */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        //加入夜间模式以及主题色影响
         android.content.SharedPreferences prefs = getSharedPreferences("app_settings", MODE_PRIVATE);
         int currentTheme = prefs.getInt("theme_mode", 1);
         themeColor= getSharedPreferences("app_settings", MODE_PRIVATE).getInt("theme_color", Color.parseColor("#4CAF50"));
@@ -465,7 +466,8 @@ public class NoteEditor extends Activity {
         int id = item.getItemId();
         if(id== R.id.menu_save) {
             String text = mText.getText().toString();
-            updateNote(text, null);
+            String title = ((EditText) findViewById(R.id.title)).getText().toString().trim();
+            updateNote(text, title);
             finish();
         } else if (id == R.id.menu_delete) {
             deleteNote();
@@ -554,19 +556,24 @@ public class NoteEditor extends Activity {
         ContentValues values = new ContentValues();
         values.put(NotePad.Notes.COLUMN_NAME_MODIFICATION_DATE, System.currentTimeMillis());
 
+        // 👇 只加这一行：把空字符串或者全是空格的标题，转成 null
+        if (title == null || title.trim().isEmpty()) {
+            title = null;
+        }
+
         // If the action is to insert a new note, this creates an initial title for it.
         if (mState == STATE_INSERT) {
 
             // If no title was provided as an argument, create one from the note text.
             if (title == null) {
-  
+
                 // Get the note's length
                 int length = text.length();
 
                 // Sets the title by getting a substring of the text that is 31 characters long
                 // or the number of characters in the note plus one, whichever is smaller.
                 title = text.substring(0, Math.min(30, length));
-  
+
                 // If the resulting length is more than 30 characters, chops off any
                 // trailing spaces
                 if (length > 30) {
@@ -580,6 +587,17 @@ public class NoteEditor extends Activity {
             values.put(NotePad.Notes.COLUMN_NAME_TITLE, title);
         } else if (title != null) {
             // In the values map, sets the value of the title
+            values.put(NotePad.Notes.COLUMN_NAME_TITLE, title);
+        } else {
+            // 针对编辑已有笔记时清空标题的情况，借用原版的截取逻辑
+            int length = text.length();
+            title = text.substring(0, Math.min(30, length));
+            if (length > 30) {
+                int lastSpace = title.lastIndexOf(' ');
+                if (lastSpace > 0) {
+                    title = title.substring(0, lastSpace);
+                }
+            }
             values.put(NotePad.Notes.COLUMN_NAME_TITLE, title);
         }
 
@@ -602,7 +620,7 @@ public class NoteEditor extends Activity {
                 values,  // The map of column names and new values to apply to them.
                 null,    // No selection criteria are used, so no where columns are necessary.
                 null     // No where columns are used, so no where arguments are necessary.
-            );
+        );
 
 
     }
