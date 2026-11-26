@@ -23,6 +23,8 @@ if (timeView != null) {
 ```
 实现效果：
 
+<img width="438" height="90" alt="屏幕截图 2026-11-25 223445" src="https://github.com/user-attachments/assets/6ec3c467-d416-447a-aa32-c4e9f0153e6b" />
+
 
 ### 2. 笔记模糊查询（搜索）
 *   **页面修改**：修改`list_option_menu`，加入了顶部菜单栏的搜索图标，点击搜索按钮进入搜索模式，重新加载页面弹出输入框。
@@ -110,6 +112,11 @@ Cursor cursor = managedQuery(
         NotePad.Notes.DEFAULT_SORT_ORDER  // Use the default sort order.
 );
 ```
+
+页面效果：
+
+<img width="602" height="314" alt="屏幕截图 2026-11-25 230834" src="https://github.com/user-attachments/assets/2b31742c-82da-4d45-8914-f2224bc33561" />
+
 
 ## 三、 拓展功能实现
 
@@ -288,6 +295,11 @@ if(getIntent().getStringExtra("MODE")!=null&&getIntent().getStringExtra("MODE").
 ```
 页面展示：
 
+<img width="596" height="286" alt="屏幕截图 2026-11-25 231428" src="https://github.com/user-attachments/assets/8b9454b6-cf9b-49a0-b503-caa3aad70941" />
+
+<img width="540" height="344" alt="屏幕截图 2026-11-25 231451" src="https://github.com/user-attachments/assets/b3bd299d-0492-46b2-bf36-3e6b957b597e" />
+
+
 ### 2. 偏好设置与 UI 美化
 *   **深色/浅色模式切换**：利用 `SharedPreferences` 持久化保存 `theme_mode` 状态。在 `onCreate` 的 `super.onCreate` 之前动态调用 `setTheme()` 切换 `Theme_Holo` 与 `Theme_Holo_Light`，并对 `ActionBar` 与 `Window` 底层背景进行同步着色。
 *   **主题换肤（强调色）**：新增 `theme_color` 字段，通过顶部菜单选择颜色（绿、蓝、橙、紫）并持久化存储。全局的悬浮 `+` 按钮、底部导航栏高亮文字、以及列表时间戳均动态读取 `themeColor` 变量进行着色。
@@ -379,6 +391,17 @@ if (currentTheme == 1) {
 }
 ```
 页面展示：
+
+<img width="624" height="1154" alt="屏幕截图 2026-11-25 231545" src="https://github.com/user-attachments/assets/f449f11c-b74f-468a-8fd2-f6fd7420369b" />
+
+<img width="298" height="144" alt="屏幕截图 2026-11-25 231608" src="https://github.com/user-attachments/assets/6ddd80a8-e260-4adb-b880-cffd4ff7093d" />
+
+<img width="590" height="496" alt="屏幕截图 2026-11-25 231620" src="https://github.com/user-attachments/assets/055d96d4-6012-442c-a14f-2082d5cc5871" />
+
+<img width="582" height="1138" alt="屏幕截图 2026-11-25 231642" src="https://github.com/user-attachments/assets/2e3f93ba-64dc-45c1-ade9-a7d3b23c40f8" />
+
+<img width="608" height="686" alt="屏幕截图 2026-11-25 231659" src="https://github.com/user-attachments/assets/d0b36c5e-41b7-4fab-950a-f6d28d75cc49" />
+
 
 ## 四、 开发难点与解决方案
 1.  **数据库结构变更导致的崩溃**：修改 `Provider` 建表语句并升级版本号后，旧数据表缺少新字段会导致 `Cursor` 索引报错。通过在测试阶段彻底卸载旧版 App 并清理数据解决。
